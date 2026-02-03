@@ -16,7 +16,7 @@ pub async fn send_to_api(wav_data: Vec<u8>) -> Result<String, String> {
     let form = multipart::Form::new()
         .part("audio", part);
 
-    let response = client.post("https://voice.quievreux.de/api/transcribe")
+    let response = client.post("https://voice2-text-web.vercel.app/api/transcribe")
         .header("Authorization", "Bearer MOCK_TOKEN") // TODO: Configurable
         .multipart(form)
         .send()
