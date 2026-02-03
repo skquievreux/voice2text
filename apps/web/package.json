@@ -8,6 +8,9 @@
     "start": "next start",
     "lint": "eslint"
   },
+  "engines": {
+    "node": "22.x"
+  },
   "dependencies": {
     "@types/crypto-js": "^4.2.2",
     "@upstash/ratelimit": "^2.0.8",

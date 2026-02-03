@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
         // 1. Validate License
         const licenseManager = new LicenseManager();
-        const { valid, tier } = licenseManager.validateLicenseKey(licenseKey);
+        const { valid, tier } = await licenseManager.validateLicenseKey(licenseKey);
 
         if (!valid || !tier) {
             return NextResponse.json({ error: 'Invalid license key' }, { status: 400 });

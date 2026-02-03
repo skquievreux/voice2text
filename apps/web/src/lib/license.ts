@@ -1,53 +1,81 @@
-import crypto from 'crypto';
-
 export class LicenseManager {
-    private encryptionKey: Buffer;
+    private encryptionKey: Uint8Array;
 
     constructor() {
         const key = process.env.LICENSE_ENCRYPTION_KEY;
         if (!key || key.length !== 64) {
             throw new Error('LICENSE_ENCRYPTION_KEY must be a 64-char hex string (32 bytes)');
         }
-        this.encryptionKey = Buffer.from(key, 'hex');
+        const bytes = key.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16));
+        this.encryptionKey = new Uint8Array(bytes);
     }
 
-    // Format: VT-XXXX-XXXX-XXXX-XXXX
-    generateLicenseKey(tier: 'free' | 'basic' | 'pro'): string {
+    async generateLicenseKey(tier: 'free' | 'basic' | 'pro'): Promise<string> {
         const data = {
             tier,
             created: Date.now(),
-            random: crypto.randomBytes(8).toString('hex')
+            random: Array.from(crypto.getRandomValues(new Uint8Array(8)))
+                .map((b) => b.toString(16).padStart(2, '0'))
+                .join('')
         };
 
         const json = JSON.stringify(data);
-        const iv = crypto.randomBytes(12); // GCM standard IV size
-        const cipher = crypto.createCipheriv('aes-256-gcm', this.encryptionKey, iv);
+        const encoder = new TextEncoder();
+        const encodedData = encoder.encode(json);
 
-        const encrypted = Buffer.concat([cipher.update(json, 'utf8'), cipher.final()]);
-        const tag = cipher.getAuthTag();
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const cryptoKey = await crypto.subtle.importKey(
+            'raw',
+            this.encryptionKey,
+            { name: 'AES-GCM' },
+            false,
+            ['encrypt']
+        );
 
-        // Pack: IV(12) + Tag(16) + Encrypted
-        const packed = Buffer.concat([iv, tag, encrypted]);
-        const hex = packed.toString('hex').toUpperCase();
+        const encryptedContent = await crypto.subtle.encrypt(
+            { name: 'AES-GCM', iv },
+            cryptoKey,
+            encodedData
+        );
 
-        // Format as XXXX-XXXX-XXXX-XXXX...
+        const encryptedArray = new Uint8Array(encryptedContent);
+        const packed = new Uint8Array(iv.length + encryptedArray.length);
+        packed.set(iv);
+        packed.set(encryptedArray, iv.length);
+
+        const hex = Array.from(packed)
+            .map((b) => b.toString(16).padStart(2, '0'))
+            .join('')
+            .toUpperCase();
+
         return `VT-${hex.slice(0, 4)}-${hex.slice(4, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}`;
     }
 
-    validateLicenseKey(key: string): { valid: boolean; tier?: 'free' | 'basic' | 'pro' } {
+    async validateLicenseKey(key: string): Promise<{ valid: boolean; tier?: 'free' | 'basic' | 'pro' }> {
         try {
             const hex = key.replace('VT-', '').replace(/-/g, '');
-            const packed = Buffer.from(hex, 'hex');
+            const bytes = hex.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16));
+            const packed = new Uint8Array(bytes);
 
-            const iv = packed.subarray(0, 12);
-            const tag = packed.subarray(12, 28);
-            const encrypted = packed.subarray(28);
+            const iv = packed.slice(0, 12);
+            const encryptedData = packed.slice(12);
 
-            const decipher = crypto.createDecipheriv('aes-256-gcm', this.encryptionKey, iv);
-            decipher.setAuthTag(tag);
+            const cryptoKey = await crypto.subtle.importKey(
+                'raw',
+                this.encryptionKey,
+                { name: 'AES-GCM' },
+                false,
+                ['decrypt']
+            );
 
-            const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
-            const data = JSON.parse(decrypted.toString('utf8'));
+            const decryptedBuffer = await crypto.subtle.decrypt(
+                { name: 'AES-GCM', iv },
+                cryptoKey,
+                encryptedData
+            );
+
+            const decoder = new TextDecoder();
+            const data = JSON.parse(decoder.decode(decryptedBuffer));
 
             return { valid: true, tier: data.tier };
         } catch (e) {

@@ -10,7 +10,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 async function main() {
     try {
         const lm = new LicenseManager();
-        const key = lm.generateLicenseKey('pro');
+        const key = await lm.generateLicenseKey('pro');
         console.log('--- GENERATED PRO LICENSE KEY ---');
         console.log(key);
         console.log('---------------------------------');
