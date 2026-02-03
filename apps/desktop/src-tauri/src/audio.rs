@@ -3,9 +3,12 @@ use std::sync::{Arc, Mutex};
 use std::io::Cursor;
 use hound::{WavSpec, WavWriter};
 
+pub struct SendStream(pub cpal::Stream);
+unsafe impl Send for SendStream {}
+
 pub struct AudioRecorder {
     pub buffer: Arc<Mutex<Vec<f32>>>,
-    stream: Option<cpal::Stream>,
+    stream: Option<SendStream>,
     spec: WavSpec,
 }
 
@@ -44,12 +47,12 @@ impl AudioRecorder {
         ).map_err(|e| e.to_string())?;
 
         stream.play().map_err(|e| e.to_string())?;
-        self.stream = Some(stream);
+        self.stream = Some(SendStream(stream));
         Ok(())
     }
 
     pub fn stop(&mut self) -> Result<Vec<u8>, String> {
-        self.stream.take(); // Drops the stream, stopping recording
+        let _ = self.stream.take(); // Drops the SendStream(cpal::Stream)
         let buffer = self.buffer.lock().unwrap();
         
         let mut wav_data = Vec::new();
@@ -61,6 +64,12 @@ impl AudioRecorder {
         }
         writer.finalize().map_err(|e| e.to_string())?;
         
+        // Debug: Save file to disk
+        use std::io::Write;
+        if let Ok(mut file) = std::fs::File::create("debug_recording.wav") {
+            let _ = file.write_all(&wav_data);
+        }
+
         // Clear buffer for next time
         drop(buffer);
         self.buffer.lock().unwrap().clear();
