@@ -17,7 +17,7 @@ pub async fn send_to_api(wav_data: Vec<u8>) -> Result<String, String> {
         .part("audio", part);
 
     let response = client.post("https://voice2-text-web.vercel.app/api/transcribe")
-        .header("Authorization", "Bearer MOCK_TOKEN") // TODO: Configurable
+        .header("Authorization", "Bearer eyJhbGciOiJIUzI1NiJ9.eyJ0aWVyIjoicHJvIiwic3ViIjoiZGV2LXVzZXItaWQiLCJpYXQiOjE3NzAxMzM3OTcsImV4cCI6MTgwMTY2OTc5N30.MPRagqw7MoWAEmQ58yldqT6WxjYsAJw0ZnBb979vx_A")
         .multipart(form)
         .send()
         .await
