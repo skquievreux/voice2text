@@ -40,3 +40,4 @@ yarn-error.log*
 **/*.rs.bk
 apps/desktop/src-tauri/target
 apps/desktop/src-tauri/gen
+.env*.local
