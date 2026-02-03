@@ -94,3 +94,46 @@
   border-radius: 6px;
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
+
+.transcription-history {
+  width: 100%;
+  max-width: 300px;
+  max-height: 200px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 20px;
+  padding: 10px;
+}
+
+.history-item {
+  font-size: 0.85rem;
+  background: #18181b;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  text-align: left;
+  line-height: 1.4;
+  word-break: break-word;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.history-item:hover {
+  background: #27272a;
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.history-copy-hint {
+  font-size: 0.65rem;
+  color: #8b5cf6;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  margin-top: 4px;
+}
+
+.history-item:hover .history-copy-hint {
+  opacity: 1;
+}

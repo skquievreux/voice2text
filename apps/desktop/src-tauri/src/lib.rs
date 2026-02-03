@@ -6,15 +6,16 @@ use std::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager, State,
+    AppHandle, Manager, State, Emitter,
 };
+use cpal::traits::{DeviceTrait, HostTrait};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 use std::fs::OpenOptions;
 use std::io::Write;
 use chrono::Local;
 
-fn write_to_log(_app: &AppHandle, message: &str) {
+pub fn write_to_log(_app: &AppHandle, message: &str) {
     let log_msg = format!("[{}] {}\n", Local::now().format("%Y-%m-%d %H:%M:%S"), message);
     
     // Hardcoded path request: %APPDATA%/Voice2Text/logs/app.log
@@ -33,11 +34,11 @@ fn write_to_log(_app: &AppHandle, message: &str) {
 }
 
 macro_rules! log_info {
-    ($app:expr, $($arg:tt)*) => {
+    ($app:expr, $($arg:tt)*) => {{
         let msg = format!($($arg)*);
         println!("INFO: {}", msg);
         write_to_log($app, &msg)
-    }
+    }}
 }
 
 #[cfg(windows)]
@@ -68,29 +69,39 @@ async fn toggle_recording(app: AppHandle, state: State<'_, AppState>) -> Result<
     } else {
         // Stop and transcribe
         *is_recording_guard = false;
-        log_info!(&app, "Recording status: STOPPED - Processing...");
-        play_feedback_sound(1200, 150); // Lower stop confirmation
-        let wav_data = state.recorder.lock().unwrap().stop()?;
+        log_info!(&app, "Recording status: STOPPING...");
+        
+        let _app_sound = app.clone();
+        tauri::async_runtime::spawn(async move {
+            play_feedback_sound(1200, 150);
+        });
+
+        log_info!(&app, "Calling recorder.stop()...");
+        let (wav_data, max_amp) = state.recorder.lock().unwrap().stop()?;
+        log_info!(&app, "Recorder stopped. Data size: {} bytes, Peak: {:.4}", wav_data.len(), max_amp);
         
         // Run transcription in background
         let app_handle = app.clone();
+        log_info!(&app_handle, "Spawning transcription task...");
         tauri::async_runtime::spawn(async move {
-            match transcribe::send_to_api(wav_data).await {
+            match transcribe::send_to_api(&app_handle, wav_data).await {
                 Ok(text) => {
-                    log_info!(&app_handle, "Transcription received: \"{}\"", text);
-                    if let Err(e) = text_injection::inject_text(&text) {
-                        log_info!(&app_handle, "Injection failure: {}", e);
-                    }
-                }
-                Err(e) => {
-                    log_info!(&app_handle, "Backend error: {}", e);
-                }
-            }
-        });
-        
-        Ok("stopped".to_string())
-    }
-}
+                     log_info!(&app_handle, "Transcription received: \"{}\"", text);
+                     let _ = app_handle.emit("transcription-result", text.clone());
+                     if let Err(e) = text_injection::inject_text(&text) {
+                         log_info!(&app_handle, "Injection failure: {}", e);
+                     }
+                 }
+                 Err(e) => {
+                     let _ = app_handle.emit("transcription-error", e.clone());
+                     log_info!(&app_handle, "Backend error: {}", e);
+                 }
+             }
+         });
+         
+         Ok("stopped".to_string())
+     }
+ }
 
 #[tauri::command]
 fn get_version(state: State<'_, AppState>) -> String {
@@ -100,19 +111,11 @@ fn get_version(state: State<'_, AppState>) -> String {
 #[tauri::command]
 async fn open_data_folder(_app: AppHandle) -> Result<(), String> {
     if let Ok(appdata) = std::env::var("APPDATA") {
-        let log_dir = std::path::Path::new(&appdata).join("Voice2Text");
+        let log_dir = std::path::Path::new(&appdata).join("Voice2Text").join("logs");
+        let _ = std::fs::create_dir_all(&log_dir);
         if cfg!(target_os = "windows") {
              std::process::Command::new("explorer")
-                .arg(log_dir)
-                .spawn()
-                .map_err(|e| e.to_string())?;
-        }
-    }
-    // Also open current working dir for debug_recording.wav
-    if let Ok(current_dir) = std::env::current_dir() {
-         if cfg!(target_os = "windows") {
-             std::process::Command::new("explorer")
-                .arg(current_dir)
+                .arg(&log_dir)
                 .spawn()
                 .map_err(|e| e.to_string())?;
         }
@@ -120,8 +123,9 @@ async fn open_data_folder(_app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn handle_shortcut(app: &AppHandle) {
+fn handle_shortcut(app: &AppHandle, label: &str) {
     let app_handle = app.clone();
+    log_info!(&app_handle, "Global shortcut triggered: {}", label);
     tauri::async_runtime::spawn(async move {
         let state: State<AppState> = app_handle.state();
         let _ = toggle_recording(app_handle.clone(), state).await;
@@ -140,13 +144,45 @@ pub fn run() {
             version: env!("CARGO_PKG_VERSION").to_string(),
         })
         .setup(|app| {
-            // Register global shortcut Ctrl + F12
-            let hotkey = Shortcut::new(Some(Modifiers::CONTROL), Code::F12);
-            app.global_shortcut().register(hotkey)?;
+            let app_handle = app.handle().clone();
+            
+            // Panic Hook
+            std::panic::set_hook(Box::new(move |info| {
+                let msg = format!("PANIC: {:?}", info);
+                log_info!(&app_handle, "{}", msg);
+            }));
+            
+            let app_handle = app.handle();
+            let devices = audio::AudioRecorder::list_devices();
+            log_info!(app_handle, "Available Audio Devices: {:?}", devices);
+            if let Some(host_device) = cpal::default_host().default_input_device() {
+                if let Ok(name) = host_device.name() {
+                    log_info!(app_handle, "Active Default Device: {}", name);
+                }
+            }
 
-            let _ = app.global_shortcut().on_shortcut(hotkey, move |app, _shortcut, event| {
+            // Register global shortcuts
+            let ctrl_f12 = Shortcut::new(Some(Modifiers::CONTROL), Code::F12);
+            let f8 = Shortcut::new(None, Code::F8);
+            
+            match app.global_shortcut().register(ctrl_f12) {
+                Ok(_) => log_info!(app_handle, "Shortcut Ctrl+F12 registered successfully"),
+                Err(e) => log_info!(app_handle, "Failed to register Ctrl+F12: {}", e),
+            }
+            match app.global_shortcut().register(f8) {
+                Ok(_) => log_info!(app_handle, "Shortcut F8 registered successfully"),
+                Err(e) => log_info!(app_handle, "Failed to register F8: {}", e),
+            }
+
+            let _ = app.global_shortcut().on_shortcut(ctrl_f12, move |app, _shortcut, event| {
                 if event.state() == ShortcutState::Pressed {
-                    handle_shortcut(app);
+                    handle_shortcut(app, "Ctrl+F12");
+                }
+            });
+
+            let _ = app.global_shortcut().on_shortcut(f8, move |app, _shortcut, event| {
+                if event.state() == ShortcutState::Pressed {
+                    handle_shortcut(app, "F8");
                 }
             });
 
