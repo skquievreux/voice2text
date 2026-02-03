@@ -1,14 +1,38 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import "./App.css";
 
 function App() {
   const [status, setStatus] = useState("Idle");
   const [isRecording, setIsRecording] = useState(false);
   const [version, setVersion] = useState("0.0.0");
+  const [history, setHistory] = useState<string[]>([]);
 
   useEffect(() => {
     invoke("get_version").then((v) => setVersion(v as string));
+
+    const unlistenResult = listen("transcription-result", (event) => {
+      const text = event.payload as string;
+      setHistory((prev) => [text, ...prev]);
+
+      // Auto-copy to clipboard
+      navigator.clipboard.writeText(text).catch(console.error);
+
+      setStatus("Transcribed & Copied!");
+      setTimeout(() => setStatus("Idle"), 2000);
+    });
+
+    const unlistenError = listen("transcription-error", (event) => {
+      console.error(event.payload);
+      setStatus("Error");
+      setTimeout(() => setStatus("Idle"), 3000);
+    });
+
+    return () => {
+      unlistenResult.then((f) => f());
+      unlistenError.then((f) => f());
+    };
   }, []);
 
   async function toggleRecording() {
@@ -20,7 +44,6 @@ function App() {
       } else {
         setIsRecording(false);
         setStatus("Transcribing...");
-        setTimeout(() => setStatus("Idle"), 3000);
       }
     } catch (e) {
       console.error(e);
@@ -40,23 +63,33 @@ function App() {
       </div>
 
       <div className="status-text">{status}</div>
-      <div className="shortcut-hint">Press <b>Ctrl + F12</b> to toggle</div>
-      <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+      <div className="shortcut-hint">Press <b>Ctrl + F12</b> or <b>F8</b> to toggle</div>
+
+      <div className="transcription-history">
+        {history.map((text, i) => (
+          <div key={i} className="history-item" onClick={() => navigator.clipboard.writeText(text)}>
+            <div className="history-text">{text}</div>
+            <div className="history-copy-hint">Click to copy</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', gap: '10px', marginTop: 'auto', paddingBottom: '20px' }}>
         <button
           onClick={toggleRecording}
-          style={{ padding: '8px 16px', fontSize: '12px', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+          style={{ padding: '8px 16px', fontSize: '11px', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
         >
-          {isRecording ? 'Stop Recording (Fallback)' : 'Start Recording (Fallback)'}
+          {isRecording ? 'Stop' : 'Start'} (Manual)
         </button>
         <button
           onClick={() => invoke("open_data_folder")}
-          style={{ padding: '8px 16px', fontSize: '12px', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+          style={{ padding: '8px 16px', fontSize: '11px', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
         >
-          Open Debug Files
+          Open Logs
         </button>
       </div>
 
-      <div className="version-info" style={{ fontSize: '10px', opacity: 0.5, marginTop: '10px' }}>v{version}</div>
+      <div className="version-info" style={{ fontSize: '10px', opacity: 0.5, marginBottom: '10px' }}>v{version}</div>
     </div>
   );
 }
