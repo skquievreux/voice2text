@@ -1,7 +1,7 @@
 {
   "name": "voice2text-monorepo",
   "private": true,
-  "packageManager": "pnpm@10.11.0",
+  "packageManager": "pnpm@9.15.5",
   "engines": {
     "node": ">=20.0.0",
     "pnpm": ">=10.0.0"
