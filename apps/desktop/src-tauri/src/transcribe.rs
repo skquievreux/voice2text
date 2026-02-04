@@ -70,7 +70,7 @@ async fn send_chunk(app: &AppHandle, wav_data: Vec<u8>, chunk_idx: usize, total:
 
     let form = multipart::Form::new().part("audio", part);
 
-    let response = client.post("https://voice2-text-web.vercel.app/api/transcribe")
+    let response = client.post("https://voice2text.runitfast.xyz/api/transcribe")
         .header("Authorization", "Bearer eyJhbGciOiJIUzI1NiJ9.eyJ0aWVyIjoicHJvIiwic3ViIjoiZGV2LXVzZXItaWQiLCJpYXQiOjE3NzAxMzM3OTcsImV4cCI6MTgwMTY2OTc5N30.MPRagqw7MoWAEmQ58yldqT6WxjYsAJw0ZnBb979vx_A")
         .multipart(form)
         .send()
