@@ -13,6 +13,8 @@ pub struct AudioRecorder {
 }
 
 impl AudioRecorder {
+    #[allow(dead_code)]
+    #[allow(deprecated)]
     pub fn list_devices() -> Vec<String> {
         let host = cpal::default_host();
         let mut device_names = Vec::new();

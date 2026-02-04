@@ -9,7 +9,7 @@ use tauri::{
     tray::{TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager, State, Emitter,
 };
-use cpal::traits::HostTrait; // Removed DeviceTrait
+
 
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use std::fs::OpenOptions;
