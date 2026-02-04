@@ -9,7 +9,8 @@ use tauri::{
     tray::{TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager, State, Emitter,
 };
-use cpal::traits::{DeviceTrait, HostTrait};
+use cpal::traits::HostTrait; // Removed DeviceTrait
+
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -112,7 +113,7 @@ async fn open_data_folder(_app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn handle_shortcut(app: &AppHandle, label: &str) {
+fn handle_shortcut(app: &AppHandle, _label: &str) {
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
         let state: State<AppState> = app_handle.state();
@@ -169,7 +170,7 @@ pub fn run() {
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "quit" => app.exit(0),
-                    "logs" => { let _ = open_data_folder(app.handle().clone()); },
+                    "logs" => { let _ = open_data_folder(app.clone()); },
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {

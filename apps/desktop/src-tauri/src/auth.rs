@@ -40,10 +40,12 @@ pub async fn check_status() -> Result<ClientStatus, String> {
         .map_err(|e| e.to_string())?;
 
     if !res.status().is_success() {
+        let status_code = res.status();
         let err_text = res.text().await.unwrap_or_default();
-        return Err(format!("Server error ({}): {}", res.status(), err_text));
+        return Err(format!("Server error ({}): {}", status_code, err_text));
     }
 
     let status: ClientStatus = res.json().await.map_err(|e| e.to_string())?;
     Ok(status)
+
 }

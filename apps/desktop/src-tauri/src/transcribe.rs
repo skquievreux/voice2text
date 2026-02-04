@@ -66,8 +66,9 @@ async fn send_chunk(app: &AppHandle, wav_data: Vec<u8>, chunk_idx: usize, total:
         .map_err(|e| e.to_string())?;
 
     if !response.status().is_success() {
+        let status = response.status();
         let err_body = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(format!("API error ({}): {}", response.status(), err_body));
+        return Err(format!("API error ({}): {}", status, err_body));
     }
 
     let res: TranscribeResponse = response.json().await.map_err(|e| e.to_string())?;
