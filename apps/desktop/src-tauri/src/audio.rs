@@ -49,7 +49,7 @@ impl AudioRecorder {
         let config = device.default_input_config().map_err(|e| e.to_string())?;
         let sample_format = config.sample_format();
         
-        self.spec.sample_rate = config.sample_rate().0;
+        self.spec.sample_rate = config.sample_rate();
         self.spec.channels = config.channels();
         
         println!("INFO: Hardware Sample Format: {:?}", sample_format);
