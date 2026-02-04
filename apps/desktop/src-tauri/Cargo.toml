@@ -32,5 +32,7 @@ enigo = { version = "0.2", features = ["serde"] }
 base64 = "0.22"
 winapi = { version = "0.3", features = ["utilapiset"] }
 chrono = "0.4"
+machine-uid = "0.5.4"
+sha2 = "0.10.9"
 
 
