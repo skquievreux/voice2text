@@ -1,71 +1,57 @@
-# 🎙️ Voice2Text
+# 🎙️ Voice2Text Monorepo
 
-> **Instant, global voice transcription for Windows.**  
-> Press a hotkey, speak, and get the text directly into your clipboard or active application. Powered by Vercel & optimized for minimal latency.
+> **Hochperformante, globale Sprachtranskription für Windows.**  
+> Per Hotkey aufnehmen, sprechen und den Text sofort in der aktiven Anwendung oder Zwischenablage erhalten.
 
-![Voice2Text App](https://via.placeholder.com/800x400?text=Voice2Text+App+Screenshot)
+Dieses Monorepo verwaltet das gesamte Voice2Text-Ökosystem, bestehend aus einem Desktop-Client (Tauri) und einem performanten Backend (Next.js).
 
 ## ✨ Features
+- **Globale Hotkeys:** `F8` oder `Ctrl+F12` zur Steuerung der Aufnahme in jeder Windows-App.
+- **Unbegrenzte Aufnahme:** Automatisches Datei-Splitting (<3MB Chunks) für stundenlange Aufnahmen.
+- **Edge-Powered:** Nutzung von Vercel Edge Functions für globale Verfügbarkeit und minimale Latenz.
+- **Privat & Sicher:** Lokale Vorverarbeitung (16-bit PCM) und verschlüsselte Übertragung.
+- **Automatisierung:** Integrierung in den Workflow durch automatische Clipboard-Injektion.
 
-- **Global Hotkeys:** Press `F8` or `Ctrl+F12` anywhere in Windows to toggle recording.
-- **Unlimited Recording:** Smart chunking allows recording for minutes or hours without limits.
-- **Micro-Latency:** Uses Vercel Edge Functions & optimized 16-bit PCM compression for fast uploads.
-- **Auto-Clipboard:** Transcribed text is automatically copied to your clipboard.
-- **Crash-Proof:** Panic hooks and robust error handling ensuring stability.
-- **Zero-Config:** Works out of the box with your default microphone.
-- **Secure:** Standalone binary with built-in TLS security.
+## 📂 Repository Struktur
+Das Projekt ist als PNPM-Workspace organisiert:
+- `apps/desktop`: Der Windows Client (Tauri + React + Rust).
+- `apps/web`: Das API-Backend (Next.js), optimiert für Vercel.
+- `docs/`: Umfassende Dokumentation nach Governance v3.0 Standard.
 
-## 🚀 Installation
+## 🛠️ Entwicklung
 
-1. Go to the [Releases](https://github.com/skquievreux/voice2text/releases) page.
-2. Download `Voice2Text_x.x.x_x64_en-US.exe` (NSIS Installer) or `.msi`.
-3. Run the installer.
-4. The app will launch and sit in your system tray.
-
-## 🛠️ Development
-
-### Prerequisites
-
+### Voraussetzungen
 - **Node.js**: v20+
-- **Rust**: Latest Stable
-- **PNPM**: v9+
+- **Rust**: Aktuelle Stable-Version (für den Desktop-Client)
+- **PNPM**: v10.11.0+
 
 ### Setup
-
 ```bash
-# Install dependencies
+# Abhängigkeiten installieren
 pnpm install
 
-# Run Desktop App (Dev Mode)
-pnpm tauri dev
+# Desktop App (Entwicklungsmodus)
+pnpm run dev --filter desktop
 
-# Run Web Backend (Dev Mode)
-cd apps/web
-pnpm dev
+# Web Backend (Entwicklungsmodus)
+pnpm run dev --filter web
 ```
 
-### Architecture
-
-- **Frontend:** React + Vite (Typing effect, History list)
-- **Backend (Desktop):** Rust (Tauri) for Audio Capture (cpal), compression (hound), and global shortcuts.
-- **Backend (Cloud):** Next.js (Vercel) for API Proxy to Deepgram/OpenAI.
-
-## 📦 Build
-
-To create a production release locally:
-
+## 🏗️ Build & Release
+Der Build-Prozess ist via GitHub Actions automatisiert. Manuelle Builds können wie folgt erstellt werden:
 ```bash
-pnpm tauri build
+# Lokales Desktop-Bundle erstellen
+pnpm run build --filter desktop
 ```
 
-Artifacts will be in `apps/desktop/src-tauri/target/release/bundle/`.
+## 📚 Weiterführende Dokumentation
+- [Architektur-ADRs](./docs/01-architecture/)
+- [Implementierungs-Guides](./docs/02-implementation/)
+- [Business-Anforderungen](./docs/04-business/)
 
-## 🤖 CI/CD
+## ⚖️ Governance
+Dieses Projekt folgt dem **AI Agent Governance Framework v3.0**. Alle Releases werden rein über Semantic-Rollouts gesteuert.
 
-This project uses **GitHub Actions** to automatically build and release the application.
-- Pushing a tag `v*` triggers the Windows build pipeline.
-- Dependabot keeps dependencies up to date.
-
-## 📄 License
-
-MIT © 2026 Quievreux
+---
+**Lizenz:** MIT © 2026 Quievreux  
+**Version:** 1.0.0 (Release via CI/CD)
