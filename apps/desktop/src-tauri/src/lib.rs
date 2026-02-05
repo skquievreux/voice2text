@@ -56,6 +56,7 @@ async fn toggle_recording(app: AppHandle, state: State<'_, AppState>) -> Result<
     // Check validity
     let token = {
         let status_guard = state.client_status.lock().unwrap();
+        println!("DEBUG: toggle_recording state check. Is Some? {}", status_guard.is_some());
         if let Some(ref s) = *status_guard {
             if s.status == "banned" {
                 return Err("Device is banned.".to_string());
@@ -174,19 +175,22 @@ pub fn run() {
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click { .. } = event {
-                        let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
+                    match event {
+                        TrayIconEvent::Click { .. } | TrayIconEvent::DoubleClick { .. } => {
+                            let app = tray.app_handle();
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
                         }
+                        _ => {}
                     }
                 })
                 .build(app)?;
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![toggle_recording, get_version, open_data_folder])
+        .invoke_handler(tauri::generate_handler![toggle_recording, get_version, open_data_folder, auth::fetch_campaigns])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

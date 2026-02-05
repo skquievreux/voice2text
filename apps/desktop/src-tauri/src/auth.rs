@@ -1,6 +1,7 @@
 use machine_uid;
 use sha2::{Sha256, Digest};
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, State};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ClientStatus {
@@ -31,9 +32,23 @@ pub fn get_hw_id() -> String {
 
 pub async fn check_status() -> Result<ClientStatus, String> {
     let hw_id = get_hw_id();
-    let client = reqwest::Client::new();
+    use std::time::Duration;
     
-    let res = client.post("https://voice2text-web.vercel.app/api/client/status")
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build()
+        .unwrap_or_default();
+    
+    let api_base = if cfg!(debug_assertions) {
+        "http://127.0.0.1:3000"
+    } else {
+        "https://voice2text.runitfast.xyz"
+    };
+    
+    let api_url = format!("{}/api/client/status", api_base);
+    println!("INFO: Connecting to Auth API: {}", api_url);
+
+    let res = client.post(&api_url)
         .json(&serde_json::json!({ "hwId": hw_id }))
         .send()
         .await
@@ -48,4 +63,39 @@ pub async fn check_status() -> Result<ClientStatus, String> {
     let status: ClientStatus = res.json().await.map_err(|e| e.to_string())?;
     Ok(status)
 
+}
+
+#[tauri::command]
+pub async fn fetch_campaigns(_app: AppHandle, state: State<'_, crate::AppState>) -> Result<serde_json::Value, String> {
+    let token = {
+        let status_guard = state.client_status.lock().unwrap();
+        if let Some(ref s) = *status_guard {
+            s.token.clone()
+        } else {
+            return Err("Client not registered".to_string());
+        }
+    };
+
+    let client = reqwest::Client::new();
+    let api_base = if cfg!(debug_assertions) {
+        "http://localhost:3000"
+    } else {
+        "https://voice2text.runitfast.xyz"
+    };
+    
+    let api_url = format!("{}/api/campaigns/fetch", api_base);
+    println!("INFO: Fetching Campaigns from: {}", api_url);
+
+    let res = client.post(&api_url)
+        .header("Authorization", format!("Bearer {}", token))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !res.status().is_success() {
+        return Err(format!("API Error: {}", res.status()));
+    }
+
+    let data: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
+    Ok(data)
 }

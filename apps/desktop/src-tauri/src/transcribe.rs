@@ -58,7 +58,16 @@ async fn send_chunk(app: &AppHandle, wav_data: Vec<u8>, chunk_idx: usize, total:
 
     let form = multipart::Form::new().part("audio", part);
 
-    let response = client.post("https://voice2text.runitfast.xyz/api/transcribe")
+    let api_base = if cfg!(debug_assertions) {
+        "http://localhost:3000"
+    } else {
+        "https://voice2text.runitfast.xyz"
+    };
+
+    let api_url = format!("{}/api/transcribe", api_base);
+    println!("INFO: Sending chunk to API: {}", api_url);
+
+    let response = client.post(&api_url)
         .header("Authorization", format!("Bearer {}", jwt_token))
         .multipart(form)
         .send()
