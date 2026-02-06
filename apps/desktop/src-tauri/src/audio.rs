@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::io::{Cursor, Write};
 use hound::{WavSpec, WavWriter};
 
+#[allow(deprecated)]
 pub struct SendStream(#[allow(dead_code)] pub cpal::Stream);
 unsafe impl Send for SendStream {}
 

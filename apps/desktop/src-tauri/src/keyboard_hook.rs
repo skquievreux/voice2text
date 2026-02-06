@@ -5,8 +5,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use winapi::shared::minwindef::{LPARAM, LRESULT, WPARAM};
 use winapi::shared::windef::HHOOK;
 use winapi::um::winuser::{
-    CallNextHookEx, SetWindowsHookExW, UnhookWindowsHookEx, GetMessageW, TranslateMessage, DispatchMessageW, PostThreadMessageW,
-    HC_ACTION, WH_KEYBOARD_LL, KBDLLHOOKSTRUCT, WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP, MSG, WM_QUIT
+    CallNextHookEx, SetWindowsHookExW, UnhookWindowsHookEx, GetMessageW, TranslateMessage, DispatchMessageW,
+    HC_ACTION, WH_KEYBOARD_LL, KBDLLHOOKSTRUCT, WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP, MSG, 
 };
 
 static mut HOOK_HANDLE: HHOOK = std::ptr::null_mut();
