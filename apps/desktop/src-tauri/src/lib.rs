@@ -337,38 +337,38 @@ pub fn run() {
                 }
             });
 
-            // Install Low-Level Keyboard Hook (Fallback for blocked hotkeys)
-            if let Err(e) = keyboard_hook::install_keyboard_hook() {
-                log_info!(&app_handle, "Keyboard hook installation failed: {}", e);
-            } else {
-                log_info!(&app_handle, "Keyboard hook active (Alt+F8 will work even if blocked)");
-                
-                // Polling thread to check recording state
-                let poll_handle = app_handle.clone();
-                std::thread::spawn(move || {
-                    let mut was_recording = false;
-                    loop {
-                        std::thread::sleep(std::time::Duration::from_millis(100));
-                        let is_recording = keyboard_hook::is_recording();
-                        
-                        if is_recording != was_recording {
-                            was_recording = is_recording;
-                            let app_clone = poll_handle.clone();
-                            tauri::async_runtime::spawn(async move {
-                                let state: State<AppState> = app_clone.state();
-                                if is_recording {
-                                    if let Err(e) = start_recording(app_clone.clone(), state).await {
-                                        crate::write_to_log(&app_clone, &format!("ERROR: Failed to start recording: {}", e));
-                                        unsafe { winapi::um::utilapiset::Beep(200, 300); } // Error Beep
-                                    }
-                                } else {
-                                    let _ = stop_recording(app_clone.clone(), state).await;
-                                }
-                            });
-                        }
-                    }
-                });
-            }
+
+            // Keyboard Hook DISABLED - Tauri shortcuts handle F8/Ctrl+F12
+            // if let Err(e) = keyboard_hook::install_keyboard_hook() {
+            //     log_info!(&app_handle, "Keyboard hook installation failed: {}", e);
+            // } else {
+            //     log_info!(&app_handle, "Keyboard hook active");
+            //     
+            //     let poll_handle = app_handle.clone();
+            //     std::thread::spawn(move || {
+            //         let mut was_recording = false;
+            //         loop {
+            //             std::thread::sleep(std::time::Duration::from_millis(100));
+            //             let is_recording = keyboard_hook::is_recording();
+            //             
+            //             if is_recording != was_recording {
+            //                 was_recording = is_recording;
+            //                 let app_clone = poll_handle.clone();
+            //                 tauri::async_runtime::spawn(async move {
+            //                     let state: State<AppState> = app_clone.state();
+            //                     if is_recording {
+            //                         if let Err(e) = start_recording(app_clone.clone(), state).await {
+            //                             crate::write_to_log(&app_clone, &format!("ERROR: Failed to start recording: {}", e));
+            //                             unsafe { winapi::um::utilapiset::Beep(200, 300); }
+            //                         }
+            //                     } else {
+            //                         let _ = stop_recording(app_clone.clone(), state).await;
+            //                     }
+            //                 });
+            //             }
+            //         }
+            //     });
+            // }
 
             // Tray
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
