@@ -192,11 +192,18 @@ async fn refresh_client_status(app: AppHandle, state: State<'_, AppState>) -> Re
     let res = auth::check_status().await;
     match res {
         Ok(status) => {
-             *state.client_status.lock().unwrap() = Some(status.clone());
-             log_info!(&app_handle, "Status refreshed: {}", status.status);
+             let mut guard = state.client_status.lock().unwrap();
+             let old_status = guard.clone().map(|s| s.status).unwrap_or_default();
+             
+             if old_status != status.status {
+                 log_info!(&app_handle, "Status changed: {} -> {}", old_status, status.status);
+             }
+             *guard = Some(status.clone());
              Ok(status)
         },
         Err(e) => {
+            // Only log errors if they are NOT network temporary issues to avoid spam?
+            // For now, log errors but keep success silent.
             log_info!(&app_handle, "Status refresh failed: {}", e);
             Err(e)
         }
