@@ -131,7 +131,7 @@ async fn stop_recording(app: AppHandle, state: State<'_, AppState>) -> Result<()
     play_feedback_sound(300.0, 100); // Lower tone (Stop)
     let _ = app.emit("recording-state", false);
 
-    let (wav_data, _) = state.recorder.lock().unwrap().stop()?;
+    let (wav_data, duration) = state.recorder.lock().unwrap().stop()?;
     
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
@@ -141,7 +141,7 @@ async fn stop_recording(app: AppHandle, state: State<'_, AppState>) -> Result<()
                  let _ = app_handle.emit("transcription-result", text.clone());
                  crate::play_feedback_sound(880.0, 100); 
                  
-                 // Save to History
+                 // Save to History (duration is available in this scope)
                  let _ = history::append_to_history(&text, duration as f32);
 
                  match text_injection::inject_text(&text) {
