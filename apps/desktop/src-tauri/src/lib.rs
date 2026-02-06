@@ -37,9 +37,21 @@ macro_rules! log_info {
     }}
 }
 
-#[cfg(windows)]
-fn play_feedback_sound(frequency: u32, duration: u32) {
-    unsafe { winapi::um::utilapiset::Beep(frequency, duration); }
+use rodio::{OutputStream, Sink, Source};
+use std::time::Duration;
+
+pub fn play_feedback_sound(frequency: f32, duration_ms: u64) {
+    std::thread::spawn(move || {
+        if let Ok((_stream, stream_handle)) = OutputStream::try_default() {
+            if let Ok(sink) = Sink::try_new(&stream_handle) {
+                let source = rodio::source::SineWave::new(frequency)
+                    .take_duration(Duration::from_millis(duration_ms))
+                    .amplify(0.20); // 20% Volume
+                sink.append(source);
+                sink.sleep_until_end();
+            }
+        }
+    });
 }
 
 struct AppState {
@@ -47,6 +59,22 @@ struct AppState {
     is_recording: Mutex<bool>,
     version: String,
     client_status: Mutex<Option<auth::ClientStatus>>,
+    selected_mic: Mutex<Option<String>>,
+}
+
+#[tauri::command]
+fn get_input_devices() -> Vec<String> {
+    audio::AudioRecorder::list_devices()
+}
+
+#[tauri::command]
+fn set_input_device(name: String, state: State<'_, AppState>) {
+    let mut mic_guard = state.selected_mic.lock().unwrap();
+    if name == "Default" {
+        *mic_guard = None;
+    } else {
+        *mic_guard = Some(name);
+    }
 }
 
 #[tauri::command]
@@ -65,10 +93,11 @@ async fn start_recording(app: AppHandle, state: State<'_, AppState>) -> Result<(
         }
     };
 
-    state.recorder.lock().unwrap().start()?;
+    let device_name = state.selected_mic.lock().unwrap().clone();
+    state.recorder.lock().unwrap().start(device_name)?;
     *is_recording_guard = true;
     log_info!(&app, "Recording status: STARTED");
-    play_feedback_sound(1500, 100);
+    play_feedback_sound(440.0, 150); // A4 (Start)
     let _ = app.emit("recording-state", true);
     Ok(())
 }
@@ -78,7 +107,6 @@ async fn stop_recording(app: AppHandle, state: State<'_, AppState>) -> Result<()
     let mut is_recording_guard = state.is_recording.lock().unwrap();
     if !*is_recording_guard { return Ok(()); }
 
-    // Check validity
     let token = {
         let status_guard = state.client_status.lock().unwrap();
         if let Some(ref s) = *status_guard {
@@ -90,7 +118,7 @@ async fn stop_recording(app: AppHandle, state: State<'_, AppState>) -> Result<()
 
     *is_recording_guard = false;
     log_info!(&app, "Recording status: STOPPING...");
-    play_feedback_sound(1200, 80);
+    play_feedback_sound(300.0, 100); // Lower tone (Stop)
     let _ = app.emit("recording-state", false);
 
     let (wav_data, _) = state.recorder.lock().unwrap().stop()?;
@@ -101,6 +129,7 @@ async fn stop_recording(app: AppHandle, state: State<'_, AppState>) -> Result<()
             Ok(text) => {
                  log_info!(&app_handle, "Transcription success.");
                  let _ = app_handle.emit("transcription-result", text.clone());
+                 crate::play_feedback_sound(880.0, 100); // High ping (Success) - User requested feedback
                  match text_injection::inject_text(&text) {
                      Ok(_) => log_info!(&app_handle, "Text Injection: SUCCESS"),
                      Err(e) => log_info!(&app_handle, "Text Injection ERROR: {}", e),
@@ -146,6 +175,23 @@ async fn open_data_folder(_app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 fn get_client_status(state: State<'_, AppState>) -> Option<auth::ClientStatus> {
     state.client_status.lock().unwrap().clone()
+}
+
+#[tauri::command]
+async fn refresh_client_status(app: AppHandle, state: State<'_, AppState>) -> Result<auth::ClientStatus, String> {
+    let app_handle = app.clone();
+    let res = auth::check_status().await;
+    match res {
+        Ok(status) => {
+             *state.client_status.lock().unwrap() = Some(status.clone());
+             log_info!(&app_handle, "Status refreshed: {}", status.status);
+             Ok(status)
+        },
+        Err(e) => {
+            log_info!(&app_handle, "Status refresh failed: {}", e);
+            Err(e)
+        }
+    }
 }
 
 #[tauri::command]
@@ -198,6 +244,7 @@ pub fn run() {
             is_recording: Mutex::new(false),
             version: env!("CARGO_PKG_VERSION").to_string(),
             client_status: Mutex::new(None),
+            selected_mic: Mutex::new(None),
         })
         .setup(|app| {
             let app_handle = app.handle().clone();
@@ -319,6 +366,9 @@ pub fn run() {
             open_data_folder, 
             auth::fetch_campaigns,
             get_client_status,
+            refresh_client_status,
+            get_input_devices,
+            set_input_device,
             get_hw_id
         ])
         .run(tauri::generate_context!())

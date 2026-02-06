@@ -34,5 +34,6 @@ winapi = { version = "0.3", features = ["utilapiset", "processthreadsapi", "secu
 chrono = "0.4"
 machine-uid = "0.5.4"
 sha2 = "0.10.9"
+rodio = "0.21.1"
 
 

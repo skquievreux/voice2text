@@ -140,11 +140,31 @@ function App() {
 function SettingsView({ onBack, version }: { onBack: () => void; version: string }) {
   const [clientStatus, setClientStatus] = useState<any>(null);
   const [hwId, setHwId] = useState("");
+  const [devices, setDevices] = useState<string[]>([]);
+  const [selectedDevice, setSelectedDevice] = useState("Default");
 
   useEffect(() => {
+    // Initial Fetch
     invoke("get_client_status").then(setClientStatus);
     invoke("get_hw_id").then((id: any) => setHwId(id as string));
+    invoke("get_input_devices").then((d: any) => setDevices(["Default", ...d]));
+
+    // Polling Status (Every 30s)
+    const interval = setInterval(() => {
+      invoke("refresh_client_status").then((s) => {
+        console.log("Status Refreshed:", s);
+        setClientStatus(s);
+      }).catch(err => console.error("Poll Error:", err));
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
+
+  const handleDeviceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const dev = e.target.value;
+    setSelectedDevice(dev);
+    invoke("set_input_device", { name: dev });
+  };
 
   const openLogs = () => invoke("open_data_folder");
   const manageSubscription = () => invoke("open_browser", { url: "https://voice2text.runitfast.xyz/dashboard" });
@@ -196,6 +216,19 @@ function SettingsView({ onBack, version }: { onBack: () => void; version: string
             COPY
           </button>
         </div>
+      </div>
+
+      <div className="settings-card">
+        <div className="card-label">Microphone Input</div>
+        <select
+          value={selectedDevice}
+          onChange={handleDeviceChange}
+          style={{ width: "100%", background: "#000", color: "white", padding: "8px", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.2)", marginTop: "5px" }}
+        >
+          {devices.map((d, i) => (
+            <option key={i} value={d}>{d}</option>
+          ))}
+        </select>
       </div>
 
       <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "12px" }}>

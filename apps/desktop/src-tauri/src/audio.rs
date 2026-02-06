@@ -13,8 +13,6 @@ pub struct AudioRecorder {
 }
 
 impl AudioRecorder {
-    #[allow(dead_code)]
-    #[allow(deprecated)]
     pub fn list_devices() -> Vec<String> {
         let host = cpal::default_host();
         let mut device_names = Vec::new();
@@ -42,11 +40,26 @@ impl AudioRecorder {
         }
     }
 
-    pub fn start(&mut self) -> Result<(), String> {
+    pub fn start(&mut self, device_name: Option<String>) -> Result<(), String> {
         let host = cpal::default_host();
-        let device = host
-            .default_input_device()
-            .ok_or("No input device found")?;
+        
+        let device = if let Some(target_name) = device_name {
+            let mut found = None;
+            if let Ok(devices) = host.input_devices() {
+                for d in devices {
+                    if let Ok(name) = d.name() {
+                        if name == target_name {
+                            found = Some(d);
+                            break;
+                        }
+                    }
+                }
+            }
+            found.ok_or(format!("Device '{}' not found", target_name))?
+        } else {
+             host.default_input_device()
+                .ok_or("No input device found")?
+        };
         
         let config = device.default_input_config().map_err(|e| e.to_string())?;
         let sample_format = config.sample_format();
@@ -54,6 +67,7 @@ impl AudioRecorder {
         self.spec.sample_rate = config.sample_rate();
         self.spec.channels = config.channels();
         
+        println!("INFO: Using Audio Device: {:?}", device.name().unwrap_or_default());
         println!("INFO: Hardware Sample Format: {:?}", sample_format);
         println!("INFO: Config: {}Hz, {} channels", self.spec.sample_rate, self.spec.channels);
 
