@@ -152,9 +152,11 @@ impl AudioRecorder {
         }
 
         // Clear buffer
+        let len = buffer_guard.len();
         drop(buffer_guard);
         self.buffer.lock().unwrap().clear();
 
-        Ok((wav_data, max_amp))
+        let duration_sec = len as f32 / self.spec.channels as f32 / self.spec.sample_rate as f32;
+        Ok((wav_data, duration_sec))
     }
 }

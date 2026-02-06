@@ -1,4 +1,4 @@
-use machine_uid;
+
 use sha2::{Sha256, Digest};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};

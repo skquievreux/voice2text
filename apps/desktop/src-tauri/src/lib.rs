@@ -142,7 +142,7 @@ async fn stop_recording(app: AppHandle, state: State<'_, AppState>) -> Result<()
                  crate::play_feedback_sound(880.0, 100); 
                  
                  // Save to History (duration is available in this scope)
-                 let _ = history::append_to_history(&text, duration as f32);
+                 let _ = history::append_to_history(&text, duration);
 
                  match text_injection::inject_text(&text) {
                      Ok(_) => log_info!(&app_handle, "Text Injection: SUCCESS"),
@@ -252,17 +252,6 @@ fn is_admin() -> bool {
     false
 }
 
-fn handle_shortcut_toggle(app: &AppHandle, label: &str) {
-    let app_handle = app.clone();
-    let label_s = label.to_string();
-    tauri::async_runtime::spawn(async move {
-        let state: State<AppState> = app_handle.state();
-        match toggle_recording(app_handle.clone(), state).await {
-            Ok(res) => log_info!(&app_handle, "Shortcut {} triggered toggle. New state: {}", label_s, res),
-            Err(e) => log_info!(&app_handle, "Shortcut {} toggle error: {}", label_s, e),
-        }
-    });
-}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

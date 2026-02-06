@@ -40,6 +40,7 @@ pub fn append_to_history(text: &str, duration: f32) -> Result<(), String> {
     Ok(())
 }
 
+#[allow(clippy::lines_filter_map_ok)]
 pub fn read_history(limit: usize, offset: usize, search: Option<String>) -> Vec<HistoryEntry> {
     let path = get_history_path();
     let file = match File::open(path) {
