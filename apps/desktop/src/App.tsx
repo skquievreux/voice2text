@@ -4,20 +4,15 @@ import { listen } from "@tauri-apps/api/event";
 import "./App.css";
 
 function App() {
+  const [view, setView] = useState<"home" | "settings">("home");
   const [status, setStatus] = useState("Idle");
-  // const [isRecording, setIsRecording] = useState(false);
   const [version, setVersion] = useState("0.0.0");
   const [lastText, setLastText] = useState("");
-
   const [campaigns, setCampaigns] = useState<any[]>([]);
 
   useEffect(() => {
     invoke("get_version").then((v) => setVersion(v as string));
-
-    // Initial Fetch
     fetchCampaigns();
-
-    // Poll every 5 minutes
     const interval = setInterval(fetchCampaigns, 5 * 60 * 1000);
 
     const unlistenResult = listen("transcription-result", (event) => {
@@ -34,37 +29,31 @@ function App() {
     });
 
     const unlistenError = listen("transcription-error", (event) => {
-      console.error(event.payload);
       setStatus("Error: " + event.payload);
       setTimeout(() => setStatus("Idle"), 5000);
     });
 
+    const unlistenState = listen("recording-state", (event) => {
+      const isRecording = event.payload as boolean;
+      setStatus(isRecording ? "Recording..." : "Idle");
+    });
+
     return () => {
+      clearInterval(interval);
       unlistenResult.then((f) => f());
       unlistenError.then((f) => f());
+      unlistenState.then((f) => f());
     };
   }, []);
 
   const fetchCampaigns = async () => {
     try {
-      // In Dev: http://localhost:3000, Prod: https://voice2text.runitfast.xyz
-      // Check if we are in dev mode (localhost:1420)
-      const isDev = window.location.hostname === 'localhost';
-      const apiBase = isDev ? 'http://localhost:3000' : 'https://voice2text.runitfast.xyz';
-
-      // We need the token. Ideally the Rust backend passes it, or we fetch it via invoke.
-      // For simplicity, we'll try to fetch without token first (if API allows) OR invoke a command to get the token.
-      // But the API req requires a token for context. 
-      // Let's create a Rust command 'get_token' or 'fetch_campaigns_proxy'.
-      // UPDATE: Let's use invoke('fetch_campaigns') to keep auth logic in Rust.
-
-      const result: any = await invoke('fetch_campaigns'); // Needs implementation in Rust
+      const result: any = await invoke("fetch_campaigns");
       if (result && result.campaigns) {
         setCampaigns(result.campaigns);
       }
     } catch (err) {
       console.error("Failed to fetch campaigns", err);
-      setStatus("CampErr: " + err);
     }
   };
 
@@ -77,49 +66,64 @@ function App() {
     }
   };
 
+  if (view === "settings") {
+    return (
+      <div className="container">
+        <SettingsView onBack={() => setView("home")} version={version} />
+      </div>
+    );
+  }
+
   return (
-    <div className="container" style={{ padding: '40px 20px', textAlign: 'center' }}>
-      <div
-        className={`mic-button-static ${status === 'Recording...' ? 'pulse' : ''}`}
-        onClick={handleToggle}
-        style={{ margin: '0 auto 20px', cursor: 'pointer' }}
+    <div className="container centered">
+      <button
+        className="back-btn"
+        onClick={() => setView("settings")}
+        style={{ position: "absolute", top: "20px", right: "20px" }}
       >
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" />
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+        </svg>
+      </button>
+
+      <div
+        className={`mic-button-static ${status === "Recording..." ? "recording" : ""}`}
+        onClick={handleToggle}
+        style={{ cursor: "pointer", marginBottom: "20px" }}
+      >
+        {status === "Recording..." && <div className="pulse" />}
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+          <line x1="12" x2="12" y1="19" y2="22" />
         </svg>
       </div>
 
-      <div className="status-text" style={{ fontSize: '18px', fontWeight: 600, marginBottom: '10px' }}>{status}</div>
+      <div className="status-text" style={{ fontSize: "18px", fontWeight: 600, marginBottom: "10px" }}>{status}</div>
 
-      {/* Transcription Result Display */}
       {(lastText || status.includes("Copied") || status === "No speech detected.") && (
-        <div style={{ margin: '15px 0', padding: '15px', background: 'rgba(30, 30, 35, 0.95)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', fontSize: '13px', lineHeight: '1.4', maxWidth: '300px', wordBreak: 'break-word', opacity: 1, color: '#ffffff', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)' }}>
+        <div style={{ margin: "15px 0", padding: "15px", background: "rgba(30, 30, 35, 0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px", fontSize: "13px", lineHeight: "1.4", maxWidth: "300px", wordBreak: "break-word", color: "#ffffff", boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.5)" }}>
           {lastText || (status === "No speech detected." ? "No speech detected" : "Check clipboard")}
         </div>
       )}
 
-      <div className="shortcut-hint" style={{ opacity: 0.5, fontSize: '12px' }}>
-        Status: Background Active<br />
-        Shortcut: <b>F8</b> or <b>Ctrl+F12</b>
+      <div className="shortcut-hint">
+        <b>F8</b> or <b>Ctrl+F12</b> to toggle
       </div>
 
-      {/* Campaigns Section */}
-      <div style={{ marginTop: '20px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '10px' }}>
-        <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '8px' }}>Campaigns</div>
-
+      <div style={{ marginTop: "30px", width: "100%", maxWidth: "320px" }}>
+        <div style={{ fontSize: "11px", fontWeight: "800", textTransform: "uppercase", color: "#52525b", textAlign: "left", marginBottom: "12px", letterSpacing: "0.1em" }}>Latest News</div>
         {campaigns.length === 0 ? (
-          <div id="campaign-container" style={{ fontSize: '11px', opacity: 0.6 }}>
-            {status.includes("CampErr") ? "Campaigns: Network Error" : "No active campaigns"}
-          </div>
+          <div style={{ fontSize: "11px", opacity: 0.4 }}>No active campaigns</div>
         ) : (
-          <div className="campaign-list" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div className="campaign-list" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
             {campaigns.map((c: any) => (
-              <div key={c.id} style={{ background: 'linear-gradient(90deg, rgba(79, 70, 229, 0.1) 0%, rgba(79, 70, 229, 0.05) 100%)', border: '1px solid rgba(79, 70, 229, 0.3)', borderRadius: '6px', padding: '10px', textAlign: 'left' }}>
-                <div style={{ fontWeight: 'bold', fontSize: '12px', color: '#818cf8', marginBottom: '4px' }}>{c.title}</div>
-                <div style={{ fontSize: '11px', opacity: 0.8, marginBottom: '6px' }}>{c.body}</div>
+              <div key={c.id} className="settings-card" style={{ padding: "12px" }}>
+                <div style={{ fontWeight: "bold", fontSize: "13px", color: "#818cf8", marginBottom: "4px" }}>{c.title}</div>
+                <div style={{ fontSize: "11px", opacity: 0.7, marginBottom: "8px", textAlign: "left" }}>{c.body}</div>
                 {c.cta && (
-                  <button onClick={() => invoke('open_browser', { url: c.cta })} style={{ fontSize: '10px', background: '#4f46e5', border: 'none', borderRadius: '4px', padding: '4px 8px', color: 'white', cursor: 'pointer' }}>
-                    Open Offer
+                  <button onClick={() => invoke("open_browser", { url: c.cta })} style={{ fontSize: "10px", background: "#4f46e5", border: "none", borderRadius: "6px", padding: "6px 10px", color: "white", cursor: "pointer", alignSelf: "flex-start", fontWeight: "700" }}>
+                    Details →
                   </button>
                 )}
               </div>
@@ -128,7 +132,84 @@ function App() {
         )}
       </div>
 
-      <div className="version-info" style={{ position: 'absolute', bottom: '15px', width: '100%', fontSize: '10px', opacity: 0.3 }}>v{version}</div>
+      <div className="version-info" style={{ position: "absolute", bottom: "15px", opacity: 0.2 }}>v{version}</div>
+    </div>
+  );
+}
+
+function SettingsView({ onBack, version }: { onBack: () => void; version: string }) {
+  const [clientStatus, setClientStatus] = useState<any>(null);
+  const [hwId, setHwId] = useState("");
+
+  useEffect(() => {
+    invoke("get_client_status").then(setClientStatus);
+    invoke("get_hw_id").then((id: any) => setHwId(id as string));
+  }, []);
+
+  const openLogs = () => invoke("open_data_folder");
+  const manageSubscription = () => invoke("open_browser", { url: "https://voice2text.runitfast.xyz/dashboard" });
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "N/A";
+    return new Date(dateStr).toLocaleDateString();
+  };
+
+  return (
+    <div className="settings-container">
+      <div className="settings-header">
+        <button className="back-btn" onClick={onBack}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+        </button>
+        <h2 style={{ margin: 0, fontSize: "22px", fontWeight: 800, letterSpacing: "-0.02em" }}>Settings</h2>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+        {(clientStatus?.name || clientStatus?.email) && (
+          <div className="settings-card">
+            <div className="card-label">User Account</div>
+            {clientStatus?.name && <div className="card-value" style={{ fontSize: "16px", marginBottom: "2px" }}>{clientStatus.name}</div>}
+            {clientStatus?.email && <div style={{ fontSize: "12px", opacity: 0.6 }}>{clientStatus.email}</div>}
+          </div>
+        )}
+
+        <div className="settings-card">
+          <div className="card-label">Subscription Status</div>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div className="card-value" style={{ textTransform: "capitalize", color: clientStatus?.status === "active" ? "#4ade80" : "#fbbf24" }}>
+              {clientStatus?.status || "Checking..."}
+            </div>
+            {clientStatus?.status === "active" && <div style={{ fontSize: "11px", opacity: 0.4 }}>(Ends: {formatDate(clientStatus?.valid_until)})</div>}
+          </div>
+        </div>
+      </div>
+
+      <div className="settings-card">
+        <div className="card-label">Device Identifier</div>
+        <div className="device-id-box">
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "250px" }}>
+            {hwId || "Loading..."}
+          </span>
+          <button
+            onClick={() => navigator.clipboard.writeText(hwId)}
+            style={{ background: "transparent", border: "none", color: "#818cf8", fontSize: "11px", fontWeight: 700, cursor: "pointer", marginLeft: "10px" }}
+          >
+            COPY
+          </button>
+        </div>
+      </div>
+
+      <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "12px" }}>
+        <button className="btn-primary" onClick={manageSubscription}>
+          Manage Subscription
+        </button>
+        <button className="btn-secondary" onClick={openLogs}>
+          Open Logs Folder
+        </button>
+      </div>
+
+      <div style={{ marginTop: "30px", fontSize: "11px", opacity: 0.2, textAlign: "center", fontWeight: 600 }}>
+        Voice2Text Desktop v{version}
+      </div>
     </div>
   );
 }

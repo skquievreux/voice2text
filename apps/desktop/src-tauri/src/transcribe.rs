@@ -66,6 +66,7 @@ async fn send_chunk(app: &AppHandle, wav_data: Vec<u8>, chunk_idx: usize, total:
 
     let api_url = format!("{}/api/transcribe", api_base);
     println!("INFO: Sending chunk to API: {}", api_url);
+    crate::write_to_log(app, &format!("API URL: {}", api_url));
 
     let response = client.post(&api_url)
         .header("Authorization", format!("Bearer {}", jwt_token))

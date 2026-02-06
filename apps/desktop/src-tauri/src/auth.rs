@@ -7,6 +7,8 @@ use tauri::{AppHandle, State};
 pub struct ClientStatus {
     pub status: String, // trial, active, banned
     pub valid_until: String,
+    pub email: Option<String>,
+    pub name: Option<String>,
     pub signature: String,
     pub token: String,
     pub now: String,
