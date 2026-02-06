@@ -102,9 +102,10 @@ async fn start_recording(app: AppHandle, state: State<'_, AppState>) -> Result<(
     let device_name = state.selected_mic.lock().unwrap().clone();
     let log_dev = device_name.clone().unwrap_or("Default".to_string());
     
+    log_info!(&app, "Attempting to start recording with device: {}", log_dev);
     state.recorder.lock().unwrap().start(device_name)?;
     *is_recording_guard = true;
-    log_info!(&app, "Recording status: STARTED (Device: {})", log_dev);
+    log_info!(&app, "Recording status: STARTED");
     play_feedback_sound(440.0, 150); // A4 (Start)
     let _ = app.emit("recording-state", true);
     Ok(())
@@ -321,7 +322,10 @@ pub fn run() {
                             tauri::async_runtime::spawn(async move {
                                 let state: State<AppState> = app_clone.state();
                                 if is_recording {
-                                    let _ = start_recording(app_clone.clone(), state).await;
+                                    if let Err(e) = start_recording(app_clone.clone(), state).await {
+                                        crate::write_to_log(&app_clone, &format!("ERROR: Failed to start recording: {}", e));
+                                        unsafe { winapi::um::utilapiset::Beep(200, 300); } // Error Beep
+                                    }
                                 } else {
                                     let _ = stop_recording(app_clone.clone(), state).await;
                                 }
