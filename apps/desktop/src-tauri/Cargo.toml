@@ -27,6 +27,7 @@ serde_json = "1"
 reqwest = { version = "0.12", default-features = false, features = ["multipart", "json", "rustls-tls"] }
 cpal = "0.17"
 hound = "3.5"
+rodio = "0.17.3"
 tokio = { version = "1", features = ["full"] }
 enigo = { version = "0.6", features = ["serde"] }
 base64 = "0.22"
@@ -34,6 +35,6 @@ winapi = { version = "0.3", features = ["utilapiset", "processthreadsapi", "secu
 chrono = "0.4"
 machine-uid = "0.5.4"
 sha2 = "0.10.9"
-rodio = "0.21.1"
+
 
 

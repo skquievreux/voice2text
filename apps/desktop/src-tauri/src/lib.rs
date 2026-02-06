@@ -42,11 +42,12 @@ use std::time::Duration;
 
 pub fn play_feedback_sound(frequency: f32, duration_ms: u64) {
     std::thread::spawn(move || {
+        // Rodio 0.17: OutputStream::try_default returns (stream, handle)
         if let Ok((_stream, stream_handle)) = OutputStream::try_default() {
             if let Ok(sink) = Sink::try_new(&stream_handle) {
                 let source = rodio::source::SineWave::new(frequency)
                     .take_duration(Duration::from_millis(duration_ms))
-                    .amplify(0.20); // 20% Volume
+                    .amplify(0.20);
                 sink.append(source);
                 sink.sleep_until_end();
             }
