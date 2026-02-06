@@ -103,18 +103,20 @@ body::-webkit-scrollbar {
 }
 
 .status-text {
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.01em;
-  color: #a1a1aa;
+  color: #F8FAFC;
+  /* Brighter white for status */
 }
 
 .shortcut-hint {
   font-size: 0.75rem;
-  color: #52525b;
+  color: #94A3B8;
+  /* Slate 400 */
   background: #18181b;
   padding: 4px 12px;
   border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .transcription-history {
@@ -134,7 +136,7 @@ body::-webkit-scrollbar {
   background: #18181b;
   padding: 8px 12px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   text-align: left;
   line-height: 1.4;
   word-break: break-word;
@@ -145,7 +147,7 @@ body::-webkit-scrollbar {
 
 .history-item:hover {
   background: #27272a;
-  border-color: rgba(139, 92, 246, 0.3);
+  border-color: rgba(139, 92, 246, 0.5);
 }
 
 /* Settings View */
@@ -174,35 +176,40 @@ body::-webkit-scrollbar {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .settings-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #1E1E21;
+  /* Solid dark grey for better contrast */
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   transition: border-color 0.2s ease;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
 }
 
 .settings-card:hover {
-  border-color: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.4);
 }
 
 .card-label {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #71717a;
-  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #94A3B8;
+  /* Slate 400 for labels */
+  font-weight: 800;
 }
 
 .card-value {
   font-size: 0.95rem;
-  font-weight: 500;
+  font-weight: 600;
+  color: #F1F5F9;
+  /* Slate 100 for values */
 }
 
 .device-id-box {
@@ -266,4 +273,67 @@ body::-webkit-scrollbar {
 
 .back-btn:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+/* Campaign System */
+.campaign-container {
+  margin-top: 32px;
+  width: 100%;
+  max-width: 340px;
+}
+
+.campaign-header {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #94A3B8;
+  /* Slate 400 */
+  text-align: left;
+  margin-bottom: 12px;
+  letter-spacing: 0.1em;
+}
+
+.campaign-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.campaign-card {
+  padding: 14px !important;
+  text-align: left;
+}
+
+.campaign-title {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #818CF8;
+  /* Indigo 400 */
+  margin-bottom: 4px;
+}
+
+.campaign-body {
+  font-size: 0.75rem;
+  color: #CBD5E1;
+  /* Slate 300 */
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.campaign-cta {
+  font-size: 0.65rem;
+  background: #4F46E5;
+  /* Indigo 600 */
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  color: white;
+  cursor: pointer;
+  align-self: flex-start;
+  font-weight: 700;
+  transition: background 0.2s ease;
+}
+
+.campaign-cta:hover {
+  background: #4338CA;
 }

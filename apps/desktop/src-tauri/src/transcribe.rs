@@ -2,12 +2,18 @@ use tauri::AppHandle;
 use reqwest::multipart;
 use serde::Deserialize;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct TranscribeResponse {
     pub text: String,
+    pub messages: Option<Vec<crate::auth::ServerMessage>>,
 }
 
-pub async fn send_to_api(app: &AppHandle, wav_data: Vec<u8>, jwt_token: &str) -> Result<String, String> {
+pub struct FullResponse {
+    pub text: String,
+    pub messages: Vec<crate::auth::ServerMessage>,
+}
+
+pub async fn send_to_api(app: &AppHandle, wav_data: Vec<u8>, jwt_token: &str) -> Result<FullResponse, String> {
     const MAX_CHUNK_SIZE: usize = 3 * 1024 * 1024; // 3 MB safety limit
     
     if wav_data.len() <= MAX_CHUNK_SIZE {
@@ -27,6 +33,7 @@ pub async fn send_to_api(app: &AppHandle, wav_data: Vec<u8>, jwt_token: &str) ->
     let total_chunks = chunks.len();
     
     let mut full_transcript = String::new();
+    let mut all_messages = Vec::new();
 
     for (i, chunk) in chunks.iter().enumerate() {
         let mut chunk_wav = Vec::new();
@@ -38,17 +45,18 @@ pub async fn send_to_api(app: &AppHandle, wav_data: Vec<u8>, jwt_token: &str) ->
         }
         writer.finalize().map_err(|e| e.to_string())?;
         
-        let text = send_chunk(app, chunk_wav, i + 1, total_chunks, jwt_token).await?;
+        let res = send_chunk(app, chunk_wav, i + 1, total_chunks, jwt_token).await?;
         if !full_transcript.is_empty() {
             full_transcript.push(' ');
         }
-        full_transcript.push_str(&text);
+        full_transcript.push_str(&res.text);
+        all_messages.extend(res.messages);
     }
 
-    Ok(full_transcript)
+    Ok(FullResponse { text: full_transcript, messages: all_messages })
 }
 
-async fn send_chunk(app: &AppHandle, wav_data: Vec<u8>, chunk_idx: usize, total: usize, jwt_token: &str) -> Result<String, String> {
+async fn send_chunk(app: &AppHandle, wav_data: Vec<u8>, chunk_idx: usize, total: usize, jwt_token: &str) -> Result<FullResponse, String> {
     crate::write_to_log(app, &format!("API: Sending chunk {}/{} ({} bytes)", chunk_idx, total, wav_data.len()));
     
     let client = reqwest::Client::new();
@@ -82,5 +90,8 @@ async fn send_chunk(app: &AppHandle, wav_data: Vec<u8>, chunk_idx: usize, total:
     }
 
     let res: TranscribeResponse = response.json().await.map_err(|e| e.to_string())?;
-    Ok(res.text)
+    Ok(FullResponse {
+        text: res.text,
+        messages: res.messages.unwrap_or_default()
+    })
 }

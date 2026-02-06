@@ -136,15 +136,20 @@ async fn stop_recording(app: AppHandle, state: State<'_, AppState>) -> Result<()
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
         match transcribe::send_to_api(&app_handle, wav_data, &token).await {
-            Ok(text) => {
+            Ok(data) => {
                  log_info!(&app_handle, "Transcription success.");
-                 let _ = app_handle.emit("transcription-result", text.clone());
+                 let _ = app_handle.emit("transcription-result", data.text.clone());
                  crate::play_feedback_sound(880.0, 100); 
                  
-                 // Save to History (duration is available in this scope)
-                 let _ = history::append_to_history(&text, duration);
+                 // Emit server messages for direct display (Latest News)
+                 if !data.messages.is_empty() {
+                     let _ = app_handle.emit("new-messages", data.messages);
+                 }
 
-                 match text_injection::inject_text(&text) {
+                 // Save to History
+                 let _ = history::append_to_history(&data.text, duration);
+
+                 match text_injection::inject_text(&data.text) {
                      Ok(_) => log_info!(&app_handle, "Text Injection: SUCCESS"),
                      Err(e) => log_info!(&app_handle, "Text Injection ERROR: {}", e),
                  }

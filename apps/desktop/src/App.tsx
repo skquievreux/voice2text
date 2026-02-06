@@ -38,11 +38,23 @@ function App() {
       setStatus(isRecording ? "Recording..." : "Idle");
     });
 
+    const unlistenMessages = listen("new-messages", (event) => {
+      const msgs = event.payload as any[];
+      if (msgs && msgs.length > 0) {
+        setCampaigns((prev) => {
+          const newOnes = msgs.filter(m => !prev.find(p => p.id === m.id));
+          if (newOnes.length === 0) return prev;
+          return [...newOnes, ...prev];
+        });
+      }
+    });
+
     return () => {
       clearInterval(interval);
       unlistenResult.then((f) => f());
       unlistenError.then((f) => f());
       unlistenState.then((f) => f());
+      unlistenMessages.then((f) => f());
     };
   }, []);
 
@@ -117,18 +129,21 @@ function App() {
         <b>F8</b> or <b>Ctrl+F12</b> to toggle
       </div>
 
-      <div style={{ marginTop: "30px", width: "100%", maxWidth: "320px" }}>
-        <div style={{ fontSize: "11px", fontWeight: "800", textTransform: "uppercase", color: "#9ca3af", textAlign: "left", marginBottom: "12px", letterSpacing: "0.1em" }}>Latest News</div>
+      <div className="campaign-container">
+        <div className="campaign-header">Latest News</div>
         {campaigns.length === 0 ? (
           <div style={{ fontSize: "11px", opacity: 0.4 }}>No active campaigns</div>
         ) : (
-          <div className="campaign-list" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          <div className="campaign-list">
             {campaigns.map((c: any) => (
-              <div key={c.id} className="settings-card" style={{ padding: "12px" }}>
-                <div style={{ fontWeight: "bold", fontSize: "13px", color: "#818cf8", marginBottom: "4px" }}>{c.title}</div>
-                <div style={{ fontSize: "11px", color: "#d1d5db", marginBottom: "8px", textAlign: "left" }}>{c.body}</div>
-                {c.cta && (
-                  <button onClick={() => invoke("open_browser", { url: c.cta })} style={{ fontSize: "10px", background: "#4f46e5", border: "none", borderRadius: "6px", padding: "6px 10px", color: "white", cursor: "pointer", alignSelf: "flex-start", fontWeight: "700" }}>
+              <div key={c.id} className="settings-card campaign-card">
+                <div className="campaign-title">{c.title}</div>
+                <div className="campaign-body">{c.body}</div>
+                {c.action_url && (
+                  <button
+                    onClick={() => invoke("open_browser", { url: c.action_url })}
+                    className="campaign-cta"
+                  >
                     Details →
                   </button>
                 )}
@@ -236,8 +251,15 @@ function SettingsView({ onBack, version }: { onBack: () => void; version: string
 
     // Polling Status (Every 60s)
     const interval = setInterval(() => {
-      invoke("refresh_client_status").then((s) => {
+      invoke("refresh_client_status").then((s: any) => {
         setClientStatus(s);
+        if (s.messages && s.messages.length > 0) {
+          setCampaigns((prev) => {
+            const newOnes = s.messages.filter((m: any) => !prev.find(p => p.id === m.id));
+            if (newOnes.length === 0) return prev;
+            return [...newOnes, ...prev];
+          });
+        }
       }).catch(err => console.error("Poll Error:", err));
     }, 60000);
 
