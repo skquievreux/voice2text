@@ -297,12 +297,18 @@ pub fn run() {
             log_info!(&app_handle, "Startup: Is Admin? {}", is_admin());
 
             // Shortcuts
-            let alt_f8 = Shortcut::new(Some(Modifiers::ALT), Code::F8);
+            let f8 = Shortcut::new(None, Code::F8);
+            let ctrl_f12 = Shortcut::new(Some(Modifiers::CONTROL), Code::F12);
             let ctrl_shift_alt_end = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT | Modifiers::ALT), Code::End);
             
-            match app.global_shortcut().register(alt_f8) {
-                Ok(_) => log_info!(&app_handle, "Registered Alt+F8"),
-                Err(e) => log_info!(&app_handle, "Failed to register Alt+F8: {}", e),
+            match app.global_shortcut().register(f8) {
+                Ok(_) => log_info!(&app_handle, "Registered F8"),
+                Err(e) => log_info!(&app_handle, "Failed to register F8: {}", e),
+            }
+            
+            match app.global_shortcut().register(ctrl_f12) {
+                Ok(_) => log_info!(&app_handle, "Registered Ctrl+F12"),
+                Err(e) => log_info!(&app_handle, "Failed to register Ctrl+F12: {}", e),
             }
             
             match app.global_shortcut().register(ctrl_shift_alt_end) {
@@ -310,10 +316,17 @@ pub fn run() {
                 Err(e) => log_info!(&app_handle, "Failed to register Diagnostic-Key: {}", e),
             }
 
-            let _ = app.global_shortcut().on_shortcut(alt_f8, move |app, _, event| {
+            let _ = app.global_shortcut().on_shortcut(f8, move |app, _, event| {
                 if event.state() == ShortcutState::Pressed { 
                     unsafe { winapi::um::utilapiset::Beep(1000, 50); }
-                    handle_shortcut_toggle(app, "Alt+F8"); 
+                    handle_shortcut_toggle(app, "F8"); 
+                }
+            });
+
+            let _ = app.global_shortcut().on_shortcut(ctrl_f12, move |app, _, event| {
+                if event.state() == ShortcutState::Pressed { 
+                    unsafe { winapi::um::utilapiset::Beep(1000, 50); }
+                    handle_shortcut_toggle(app, "Ctrl+F12"); 
                 }
             });
 

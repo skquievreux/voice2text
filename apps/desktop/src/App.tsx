@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import "./App.css";
 
 function App() {
-  const [view, setView] = useState<"home" | "settings">("home");
+  const [view, setView] = useState<"home" | "settings" | "history">("home");
   const [status, setStatus] = useState("Idle");
   const [version, setVersion] = useState("0.0.0");
   const [lastText, setLastText] = useState("");
@@ -76,6 +76,10 @@ function App() {
 
   return (
     <div className="container centered">
+      <div style={{ position: "absolute", top: "20px", left: "20px", display: "flex", gap: "10px" }}>
+        <HistoryButton onClick={() => setView("history")} />
+      </div>
+
       <button
         className="back-btn"
         onClick={() => setView("settings")}
@@ -85,6 +89,8 @@ function App() {
           <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z" />
         </svg>
       </button>
+
+      {view === "history" && <HistoryView onBack={() => setView("home")} />}
 
       <div
         className={`mic-button-static ${status === "Recording..." ? "recording" : ""}`}
@@ -112,7 +118,7 @@ function App() {
       </div>
 
       <div style={{ marginTop: "30px", width: "100%", maxWidth: "320px" }}>
-        <div style={{ fontSize: "11px", fontWeight: "800", textTransform: "uppercase", color: "#52525b", textAlign: "left", marginBottom: "12px", letterSpacing: "0.1em" }}>Latest News</div>
+        <div style={{ fontSize: "11px", fontWeight: "800", textTransform: "uppercase", color: "#9ca3af", textAlign: "left", marginBottom: "12px", letterSpacing: "0.1em" }}>Latest News</div>
         {campaigns.length === 0 ? (
           <div style={{ fontSize: "11px", opacity: 0.4 }}>No active campaigns</div>
         ) : (
@@ -120,7 +126,7 @@ function App() {
             {campaigns.map((c: any) => (
               <div key={c.id} className="settings-card" style={{ padding: "12px" }}>
                 <div style={{ fontWeight: "bold", fontSize: "13px", color: "#818cf8", marginBottom: "4px" }}>{c.title}</div>
-                <div style={{ fontSize: "11px", opacity: 0.7, marginBottom: "8px", textAlign: "left" }}>{c.body}</div>
+                <div style={{ fontSize: "11px", color: "#d1d5db", marginBottom: "8px", textAlign: "left" }}>{c.body}</div>
                 {c.cta && (
                   <button onClick={() => invoke("open_browser", { url: c.cta })} style={{ fontSize: "10px", background: "#4f46e5", border: "none", borderRadius: "6px", padding: "6px 10px", color: "white", cursor: "pointer", alignSelf: "flex-start", fontWeight: "700" }}>
                     Details →
@@ -132,7 +138,76 @@ function App() {
         )}
       </div>
 
-      <div className="version-info" style={{ position: "absolute", bottom: "15px", opacity: 0.2 }}>v{version}</div>
+      <div className="version-info" style={{ position: "absolute", bottom: "15px", opacity: 1, fontSize: "12px", color: "#818cf8", fontWeight: 700 }}>v{version}</div>
+    </div>
+  );
+}
+
+function HistoryButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button className="back-btn" onClick={onClick}>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+    </button>
+  );
+}
+
+function HistoryView({ onBack }: { onBack: () => void }) {
+  const [items, setItems] = useState<any[]>([]);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    loadHistory();
+  }, [search]);
+
+  const loadHistory = () => {
+    invoke("get_history", { limit: 50, offset: 0, search: search || null })
+      .then((res: any) => setItems(res))
+      .catch(console.error);
+  };
+
+  const clearHistory = () => {
+    if (confirm("Clear all history?")) {
+      invoke("clear_all_history").then(() => setItems([]));
+    }
+  };
+
+  return (
+    <div className="settings-container" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, background: "#0a0a0c" }}>
+      <div className="settings-header">
+        <button className="back-btn" onClick={onBack}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+        </button>
+        <h2 style={{ margin: 0, fontSize: "22px", fontWeight: 800 }}>History</h2>
+      </div>
+
+      <input
+        type="text"
+        placeholder="Search past transcriptions..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        style={{ width: "100%", background: "#18181b", color: "white", border: "1px solid rgba(255,255,255,0.1)", padding: "12px", borderRadius: "8px", marginBottom: "15px" }}
+      />
+
+      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px" }}>
+        {items.length === 0 && <div style={{ opacity: 0.4, textAlign: "center", marginTop: "20px" }}>No history found</div>}
+        {items.map((item) => (
+          <div key={item.id} className="settings-card" style={{ padding: "12px", textAlign: "left" }}>
+            <div style={{ fontSize: "10px", color: "#9ca3af", marginBottom: "5px" }}>{new Date(item.timestamp).toLocaleString()}</div>
+            <div style={{ fontSize: "13px", color: "#e5e7eb", marginBottom: "10px", wordBreak: "break-word" }}>{item.text}</div>
+            <button
+              className="btn-secondary"
+              style={{ padding: "4px 8px", fontSize: "10px" }}
+              onClick={() => navigator.clipboard.writeText(item.text)}
+            >
+              COPY
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <button className="btn-secondary" style={{ marginTop: "20px", color: "#ef4444" }} onClick={clearHistory}>
+        Clear All History
+      </button>
     </div>
   );
 }
@@ -147,15 +222,24 @@ function SettingsView({ onBack, version }: { onBack: () => void; version: string
     // Initial Fetch
     invoke("get_client_status").then(setClientStatus);
     invoke("get_hw_id").then((id: any) => setHwId(id as string));
-    invoke("get_input_devices").then((d: any) => setDevices(["Default", ...d]));
 
-    // Polling Status (Every 30s)
+    // Fetch Devices & Active Selection
+    Promise.all([
+      invoke("get_input_devices"),
+      invoke("get_input_device")
+    ]).then(([d, active]) => {
+      setDevices(["Default", ...(d as string[])]);
+      if (active) {
+        setSelectedDevice(active as string);
+      }
+    }).catch(e => console.error("Device Fetch Error", e));
+
+    // Polling Status (Every 60s)
     const interval = setInterval(() => {
       invoke("refresh_client_status").then((s) => {
-        console.log("Status Refreshed:", s);
         setClientStatus(s);
       }).catch(err => console.error("Poll Error:", err));
-    }, 30000);
+    }, 60000);
 
     return () => clearInterval(interval);
   }, []);
@@ -240,7 +324,7 @@ function SettingsView({ onBack, version }: { onBack: () => void; version: string
         </button>
       </div>
 
-      <div style={{ marginTop: "30px", fontSize: "11px", opacity: 0.2, textAlign: "center", fontWeight: 600 }}>
+      <div style={{ marginTop: "30px", fontSize: "12px", color: "#818cf8", textAlign: "center", fontWeight: 700 }}>
         Voice2Text Desktop v{version}
       </div>
     </div>
