@@ -296,39 +296,13 @@ pub fn run() {
             // Registration Info
             log_info!(&app_handle, "Startup: Is Admin? {}", is_admin());
 
-            // Shortcuts
-            let f8 = Shortcut::new(None, Code::F8);
-            let ctrl_f12 = Shortcut::new(Some(Modifiers::CONTROL), Code::F12);
+            // Shortcuts handled by keyboard hook for global support
             let ctrl_shift_alt_end = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT | Modifiers::ALT), Code::End);
-            
-            match app.global_shortcut().register(f8) {
-                Ok(_) => log_info!(&app_handle, "Registered F8"),
-                Err(e) => log_info!(&app_handle, "Failed to register F8: {}", e),
-            }
-            
-            match app.global_shortcut().register(ctrl_f12) {
-                Ok(_) => log_info!(&app_handle, "Registered Ctrl+F12"),
-                Err(e) => log_info!(&app_handle, "Failed to register Ctrl+F12: {}", e),
-            }
             
             match app.global_shortcut().register(ctrl_shift_alt_end) {
                 Ok(_) => log_info!(&app_handle, "Registered Diagnostic-Key (Ctrl+Shift+Alt+End)"),
                 Err(e) => log_info!(&app_handle, "Failed to register Diagnostic-Key: {}", e),
             }
-
-            let _ = app.global_shortcut().on_shortcut(f8, move |app, _, event| {
-                if event.state() == ShortcutState::Pressed { 
-                    unsafe { winapi::um::utilapiset::Beep(1000, 50); }
-                    handle_shortcut_toggle(app, "F8"); 
-                }
-            });
-
-            let _ = app.global_shortcut().on_shortcut(ctrl_f12, move |app, _, event| {
-                if event.state() == ShortcutState::Pressed { 
-                    unsafe { winapi::um::utilapiset::Beep(1000, 50); }
-                    handle_shortcut_toggle(app, "Ctrl+F12"); 
-                }
-            });
 
             let _ = app.global_shortcut().on_shortcut(ctrl_shift_alt_end, move |app, _, event| {
                 if event.state() == ShortcutState::Pressed { 
@@ -338,37 +312,37 @@ pub fn run() {
             });
 
 
-            // Keyboard Hook DISABLED - Tauri shortcuts handle F8/Ctrl+F12
-            // if let Err(e) = keyboard_hook::install_keyboard_hook() {
-            //     log_info!(&app_handle, "Keyboard hook installation failed: {}", e);
-            // } else {
-            //     log_info!(&app_handle, "Keyboard hook active");
-            //     
-            //     let poll_handle = app_handle.clone();
-            //     std::thread::spawn(move || {
-            //         let mut was_recording = false;
-            //         loop {
-            //             std::thread::sleep(std::time::Duration::from_millis(100));
-            //             let is_recording = keyboard_hook::is_recording();
-            //             
-            //             if is_recording != was_recording {
-            //                 was_recording = is_recording;
-            //                 let app_clone = poll_handle.clone();
-            //                 tauri::async_runtime::spawn(async move {
-            //                     let state: State<AppState> = app_clone.state();
-            //                     if is_recording {
-            //                         if let Err(e) = start_recording(app_clone.clone(), state).await {
-            //                             crate::write_to_log(&app_clone, &format!("ERROR: Failed to start recording: {}", e));
-            //                             unsafe { winapi::um::utilapiset::Beep(200, 300); }
-            //                         }
-            //                     } else {
-            //                         let _ = stop_recording(app_clone.clone(), state).await;
-            //                     }
-            //                 });
-            //             }
-            //         }
-            //     });
-            // }
+            // Keyboard Hook for global PTT (works even when app not focused)
+            if let Err(e) = keyboard_hook::install_keyboard_hook() {
+                log_info!(&app_handle, "Keyboard hook installation failed: {}", e);
+            } else {
+                log_info!(&app_handle, "Keyboard hook active (F8/Ctrl+F12 work globally)");
+                
+                let poll_handle = app_handle.clone();
+                std::thread::spawn(move || {
+                    let mut was_recording = false;
+                    loop {
+                        std::thread::sleep(std::time::Duration::from_millis(100));
+                        let is_recording = keyboard_hook::is_recording();
+                        
+                        if is_recording != was_recording {
+                            was_recording = is_recording;
+                            let app_clone = poll_handle.clone();
+                            tauri::async_runtime::spawn(async move {
+                                let state: State<AppState> = app_clone.state();
+                                if is_recording {
+                                    if let Err(e) = start_recording(app_clone.clone(), state).await {
+                                        crate::write_to_log(&app_clone, &format!("ERROR: Failed to start recording: {}", e));
+                                        unsafe { winapi::um::utilapiset::Beep(200, 300); }
+                                    }
+                                } else {
+                                    let _ = stop_recording(app_clone.clone(), state).await;
+                                }
+                            });
+                        }
+                    }
+                });
+            }
 
             // Tray
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
