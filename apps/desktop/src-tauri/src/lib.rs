@@ -79,6 +79,11 @@ fn set_input_device(name: String, state: State<'_, AppState>) {
 }
 
 #[tauri::command]
+fn get_input_device(state: State<'_, AppState>) -> Option<String> {
+    state.selected_mic.lock().unwrap().clone()
+}
+
+#[tauri::command]
 async fn start_recording(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     let mut is_recording_guard = state.is_recording.lock().unwrap();
     if *is_recording_guard { return Ok(()); }
@@ -95,9 +100,11 @@ async fn start_recording(app: AppHandle, state: State<'_, AppState>) -> Result<(
     };
 
     let device_name = state.selected_mic.lock().unwrap().clone();
+    let log_dev = device_name.clone().unwrap_or("Default".to_string());
+    
     state.recorder.lock().unwrap().start(device_name)?;
     *is_recording_guard = true;
-    log_info!(&app, "Recording status: STARTED");
+    log_info!(&app, "Recording status: STARTED (Device: {})", log_dev);
     play_feedback_sound(440.0, 150); // A4 (Start)
     let _ = app.emit("recording-state", true);
     Ok(())
@@ -370,6 +377,7 @@ pub fn run() {
             refresh_client_status,
             get_input_devices,
             set_input_device,
+            get_input_device,
             get_hw_id
         ])
         .run(tauri::generate_context!())
