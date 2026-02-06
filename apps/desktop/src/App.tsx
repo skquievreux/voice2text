@@ -9,11 +9,30 @@ function App() {
   const [version, setVersion] = useState("0.0.0");
   const [lastText, setLastText] = useState("");
   const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [clientStatus, setClientStatus] = useState<any>(null);
 
   useEffect(() => {
     invoke("get_version").then((v) => setVersion(v as string));
     fetchCampaigns();
-    const interval = setInterval(fetchCampaigns, 5 * 60 * 1000);
+
+    // Initial Status Fetch
+    invoke("get_client_status").then(setClientStatus);
+
+    const campaignsInterval = setInterval(fetchCampaigns, 5 * 60 * 1000);
+
+    // Polling Status (Every 60s)
+    const statusInterval = setInterval(() => {
+      invoke("refresh_client_status").then((s: any) => {
+        setClientStatus(s);
+        if (s.messages && s.messages.length > 0) {
+          setCampaigns((prev) => {
+            const newOnes = s.messages.filter((m: any) => !prev.find(p => p.id === m.id));
+            if (newOnes.length === 0) return prev;
+            return [...newOnes, ...prev];
+          });
+        }
+      }).catch(err => console.error("Poll Error:", err));
+    }, 60000);
 
     const unlistenResult = listen("transcription-result", (event) => {
       const text = event.payload as string;
@@ -50,7 +69,8 @@ function App() {
     });
 
     return () => {
-      clearInterval(interval);
+      clearInterval(campaignsInterval);
+      clearInterval(statusInterval);
       unlistenResult.then((f) => f());
       unlistenError.then((f) => f());
       unlistenState.then((f) => f());
@@ -81,7 +101,7 @@ function App() {
   if (view === "settings") {
     return (
       <div className="container">
-        <SettingsView onBack={() => setView("home")} version={version} />
+        <SettingsView onBack={() => setView("home")} version={version} clientStatus={clientStatus} />
       </div>
     );
   }
@@ -227,15 +247,13 @@ function HistoryView({ onBack }: { onBack: () => void }) {
   );
 }
 
-function SettingsView({ onBack, version }: { onBack: () => void; version: string }) {
-  const [clientStatus, setClientStatus] = useState<any>(null);
+function SettingsView({ onBack, version, clientStatus }: { onBack: () => void; version: string; clientStatus: any }) {
   const [hwId, setHwId] = useState("");
   const [devices, setDevices] = useState<string[]>([]);
   const [selectedDevice, setSelectedDevice] = useState("Default");
 
   useEffect(() => {
     // Initial Fetch
-    invoke("get_client_status").then(setClientStatus);
     invoke("get_hw_id").then((id: any) => setHwId(id as string));
 
     // Fetch Devices & Active Selection
@@ -248,22 +266,6 @@ function SettingsView({ onBack, version }: { onBack: () => void; version: string
         setSelectedDevice(active as string);
       }
     }).catch(e => console.error("Device Fetch Error", e));
-
-    // Polling Status (Every 60s)
-    const interval = setInterval(() => {
-      invoke("refresh_client_status").then((s: any) => {
-        setClientStatus(s);
-        if (s.messages && s.messages.length > 0) {
-          setCampaigns((prev) => {
-            const newOnes = s.messages.filter((m: any) => !prev.find(p => p.id === m.id));
-            if (newOnes.length === 0) return prev;
-            return [...newOnes, ...prev];
-          });
-        }
-      }).catch(err => console.error("Poll Error:", err));
-    }, 60000);
-
-    return () => clearInterval(interval);
   }, []);
 
   const handleDeviceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
