@@ -101,7 +101,10 @@ async fn stop_recording(app: AppHandle, state: State<'_, AppState>) -> Result<()
             Ok(text) => {
                  log_info!(&app_handle, "Transcription success.");
                  let _ = app_handle.emit("transcription-result", text.clone());
-                 let _ = text_injection::inject_text(&text);
+                 match text_injection::inject_text(&text) {
+                     Ok(_) => log_info!(&app_handle, "Text Injection: SUCCESS"),
+                     Err(e) => log_info!(&app_handle, "Text Injection ERROR: {}", e),
+                 }
              }
              Err(e) => {
                  log_info!(&app_handle, "Backend error: {}", e);
