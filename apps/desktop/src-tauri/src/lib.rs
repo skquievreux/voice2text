@@ -3,6 +3,7 @@ mod transcribe;
 mod text_injection;
 mod auth;
 mod keyboard_hook;
+mod history;
 
 use std::sync::Mutex;
 use tauri::{
@@ -138,7 +139,11 @@ async fn stop_recording(app: AppHandle, state: State<'_, AppState>) -> Result<()
             Ok(text) => {
                  log_info!(&app_handle, "Transcription success.");
                  let _ = app_handle.emit("transcription-result", text.clone());
-                 crate::play_feedback_sound(880.0, 100); // High ping (Success) - User requested feedback
+                 crate::play_feedback_sound(880.0, 100); 
+                 
+                 // Save to History
+                 let _ = history::append_to_history(&text, duration as f32);
+
                  match text_injection::inject_text(&text) {
                      Ok(_) => log_info!(&app_handle, "Text Injection: SUCCESS"),
                      Err(e) => log_info!(&app_handle, "Text Injection ERROR: {}", e),
@@ -213,6 +218,16 @@ async fn refresh_client_status(app: AppHandle, state: State<'_, AppState>) -> Re
 #[tauri::command]
 fn get_hw_id() -> String {
     auth::get_hw_id()
+}
+
+#[tauri::command]
+fn get_history(limit: usize, offset: usize, search: Option<String>) -> Vec<history::HistoryEntry> {
+    history::read_history(limit, offset, search)
+}
+
+#[tauri::command]
+fn clear_all_history() -> Result<(), String> {
+    history::clear_history()
 }
 
 fn is_admin() -> bool {
@@ -389,7 +404,9 @@ pub fn run() {
             get_input_devices,
             set_input_device,
             get_input_device,
-            get_hw_id
+            get_hw_id,
+            get_history,
+            clear_all_history
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
