@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::sync::{Arc, Mutex};
 use std::io::{Cursor, Write};
