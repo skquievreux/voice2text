@@ -288,6 +288,33 @@ pub fn run() {
                         let state: State<AppState> = reg_handle.state();
                         *state.client_status.lock().unwrap() = Some(status_resp.clone());
                         log_info!(&reg_handle, "Client registered. Status: {}", status_resp.status);
+                        
+                        // Start keyboard hook polling AFTER registration
+                        let poll_handle = reg_handle.clone();
+                        std::thread::spawn(move || {
+                            std::thread::sleep(std::time::Duration::from_millis(500)); // Wait for hook install
+                            let mut was_recording = false;
+                            loop {
+                                std::thread::sleep(std::time::Duration::from_millis(100));
+                                let is_recording = keyboard_hook::is_recording();
+                                
+                                if is_recording != was_recording {
+                                    was_recording = is_recording;
+                                    let app_clone = poll_handle.clone();
+                                    tauri::async_runtime::spawn(async move {
+                                        let state: State<AppState> = app_clone.state();
+                                        if is_recording {
+                                            if let Err(e) = start_recording(app_clone.clone(), state).await {
+                                                crate::write_to_log(&app_clone, &format!("Hook PTT start failed: {}", e));
+                                                unsafe { winapi::um::utilapiset::Beep(200, 300); }
+                                            }
+                                        } else {
+                                            let _ = stop_recording(app_clone.clone(), state).await;
+                                        }
+                                    });
+                                }
+                            }
+                        });
                     }
                     Err(e) => log_info!(&reg_handle, "Registration failed: {}", e),
                 }
@@ -312,36 +339,12 @@ pub fn run() {
             });
 
 
+
             // Keyboard Hook for global PTT (works even when app not focused)
             if let Err(e) = keyboard_hook::install_keyboard_hook() {
                 log_info!(&app_handle, "Keyboard hook installation failed: {}", e);
             } else {
-                log_info!(&app_handle, "Keyboard hook active (F8/Ctrl+F12 work globally)");
-                
-                let poll_handle = app_handle.clone();
-                std::thread::spawn(move || {
-                    let mut was_recording = false;
-                    loop {
-                        std::thread::sleep(std::time::Duration::from_millis(100));
-                        let is_recording = keyboard_hook::is_recording();
-                        
-                        if is_recording != was_recording {
-                            was_recording = is_recording;
-                            let app_clone = poll_handle.clone();
-                            tauri::async_runtime::spawn(async move {
-                                let state: State<AppState> = app_clone.state();
-                                if is_recording {
-                                    if let Err(e) = start_recording(app_clone.clone(), state).await {
-                                        crate::write_to_log(&app_clone, &format!("ERROR: Failed to start recording: {}", e));
-                                        unsafe { winapi::um::utilapiset::Beep(200, 300); }
-                                    }
-                                } else {
-                                    let _ = stop_recording(app_clone.clone(), state).await;
-                                }
-                            });
-                        }
-                    }
-                });
+                log_info!(&app_handle, "Keyboard hook installed");
             }
 
             // Tray
